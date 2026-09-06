@@ -13,7 +13,7 @@ defaults:
     shell: bash
 jobs:
   native-visual:
-    runs-on: macos-14
+    runs-on: macos-15
     timeout-minutes: 45
     env:
       CARGO_INCREMENTAL: '0'
@@ -37,6 +37,7 @@ jobs:
           mkdir -p verification/native-visual
           git rev-parse HEAD > verification/native-visual/rowdy-sha.txt
           git -C upstream rev-parse HEAD > verification/native-visual/upstream-sha.txt
+          xcodebuild -version > verification/native-visual/xcode.txt
           python -m pip install 'setuptools>=68' wheel
           python -m pip install --no-deps --no-build-isolation -e .
           python native/apply.py upstream --check
@@ -61,3 +62,5 @@ jobs:
           if-no-files-found: error
 # Own-surface Metal captures need no OS privacy-setting changes. This gate is not
 # signed packaging, manual target-Mac validation, production data or cloud access.
+# The full upstream executable's C++ dependencies require newer libc++ than the
+# macos-14 image's default Xcode 15.4; the compile-only crate still tests macos-14.

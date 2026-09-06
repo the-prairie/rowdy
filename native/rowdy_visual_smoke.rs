@@ -15,12 +15,29 @@ fn paint(cx: &mut VisualTestAppContext, window: WindowHandle<Workspace>) -> Resu
 }
 
 fn click(cx: &mut VisualTestAppContext, window: WindowHandle<Workspace>, id: &str) -> Result<()> {
-    paint(cx, window)?;
-    let bounds = cx.update_window(window.into(), |_, window, _| window.rowdy_test_bounds(id))?
-        .ok_or_else(|| anyhow!("No native button bounds: {id}"))?;
-    ensure!(bounds.center().y < px(790.) && bounds.center().y > px(0.), "Native control outside viewport: {id}");
-    cx.simulate_click(window.into(), bounds.center(), Modifiers::default());
-    paint(cx, window)
+    let in_content=id.starts_with("rowdy-event-") || id.starts_with("rowdy-open-") || id.starts_with("rowdy-id-");
+    for _ in 0..16 {
+        paint(cx,window)?;
+        let (bounds,content)=cx.update_window(window.into(),|_,window,_|
+            (window.rowdy_test_bounds(id),window.rowdy_test_bounds("rowdy-evidence")))?;
+        let clip=content.ok_or_else(||anyhow!("Native evidence surface did not render"))?;
+        if let Some(bounds)=bounds {
+            let p=bounds.center();
+            let min_y=if in_content {clip.origin.y+px(4.)} else {px(0.)};
+            let max_y=if in_content {clip.bottom()-px(4.)} else {px(790.)};
+            if p.y>min_y && p.y<max_y && p.x>px(0.) && p.x<px(1275.) {
+                cx.simulate_click(window.into(),p,Modifiers::default());
+                return paint(cx,window);
+            }
+        }
+        ensure!(in_content,"Native toolbar control missing: {id}");
+        let delta=if bounds.is_some_and(|b|b.center().y<clip.origin.y+px(4.)) {140.} else {-140.};
+        cx.simulate_event(window.into(),gpui::ScrollWheelEvent {
+            position:clip.center(),delta:gpui::ScrollDelta::Pixels(point(px(0.),px(delta))),
+            ..Default::default()
+        });
+    }
+    Err(anyhow!("Native control could not be reached by scrolling: {id}"))
 }
 
 fn state(cx: &VisualTestAppContext, view: &Entity<RowdyView>) -> Value {

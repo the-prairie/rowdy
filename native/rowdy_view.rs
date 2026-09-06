@@ -29,6 +29,7 @@ pub struct RowdyView {
     result_revision: u64,
     historical: bool,
     visible: bool,
+    scrolls: [gpui::ScrollHandle; 4],
     trace: Option<Value>,
     selected_event: Option<String>,
     arrival_clock: bool,
@@ -56,6 +57,7 @@ impl RowdyView {
         Self {
             workspace, state: State::default(), status: "Open a registered SQL file. Cloud adapters stay disabled.".into(),
             result: None, result_buffer: None, result_revision: 0, historical: false, visible: false,
+            scrolls: std::array::from_fn(|_| gpui::ScrollHandle::new()),
             trace: None, selected_event: None, arrival_clock: false,
             surface: Surface::Results, scope: "result".into(), show_scopes: false,
             session: format!("native-{}-{}", std::process::id(), SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_nanos()),
@@ -239,7 +241,7 @@ impl RowdyView {
 
     fn focus_editor(&self, window: &mut Window, cx: &mut Context<Self>) {
         if let Some(editor) = self.workspace.upgrade().and_then(|w| w.read(cx).active_item(cx).and_then(|i| i.act_as::<Editor>(cx))) {
-            editor.read(cx).focus_handle(cx).focus(window);
+            editor.read(cx).focus_handle(cx).focus(window, cx);
         }
     }
 
@@ -398,7 +400,7 @@ impl Render for RowdyView {
             tabs=tabs.child(Button::new(id,label).toggle_state(self.surface==surface).on_click(cx.listener(move |this,_,_,cx|{this.surface=surface;cx.notify();})));
         }
         tabs=tabs.child(Button::new("rowdy-scope",format!("Scope: {}",self.scope)).on_click(cx.listener(|this,_,_,cx|{this.show_scopes=!this.show_scopes;cx.notify();})));
-        let mut content=v_flex().id("rowdy-evidence").flex_1().min_h_0().overflow_y_scroll().p_3().gap_2();
+        let mut content=v_flex().id("rowdy-evidence").flex_1().min_h_0().overflow_y_scroll().track_scroll(&self.scrolls[self.surface as usize]).p_3().gap_2();
         if self.historical && self.surface!=Surface::Trace {content=content.child(Label::new("Historical result — not evidence for the current buffer").size(LabelSize::Small).color(Color::Warning));}
         if self.show_scopes {
             let mut names=vec!["result".to_owned()];

@@ -52,8 +52,9 @@ def install(root):
         self.rowdy_view.clone()
     }
 ''')
+    replace('crates/dbt_ui/src/rowdy_view.rs', '.id("rowdy-evidence")', '.id("rowdy-evidence").debug_selector(|| "rowdy-evidence".into())')
     path = root / 'crates/dbt_ui/src/rowdy_view.rs'
-    changes[path] = path.read_text() + '''
+    changes[path] = changes[path] + '''
 // Installed only in the pinned CI visual-test checkout.
 impl RowdyView {
     pub fn visual_state(&self) -> Value {
