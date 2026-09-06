@@ -1,0 +1,9 @@
+{
+  "format": "rowdy-public-source-delivery-v1",
+  "description": "One-time transport of public-safe UTF-8 source. The import workflow verifies SHA-256 and commits ordinary readable files; this is not an application runtime dependency.",
+  "compression": "xz+base64",
+  "sha256": "6c5d02728104f3321d279e973918f749e48bbf79ba33f951fb745226f1c242db",
+  "bytes": 231719,
+  "files": 43,
+  "parts": ["part-00.txt", "part-01.txt", "part-02.txt", "part-03.txt", "part-04.txt", "part-05.txt", "part-06.txt"]
+}
