@@ -1,0 +1,43 @@
+name: Native GPUI compile gate
+on:
+  pull_request:
+    paths: ['native/**', '.github/workflows/native-check.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  native-compile:
+    runs-on: macos-14
+    timeout-minutes: 25
+    env:
+      CARGO_INCREMENTAL: '0'
+      CARGO_BUILD_JOBS: '3'
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          repository: arezki1990/dbt-zed
+          ref: 3ee08f10debe9464b53b3e1241b56b6deb4e79fb
+          path: upstream
+          persist-credentials: false
+      - name: Verify source anchors and apply native integration
+        run: |
+          mkdir -p verification/native
+          python3 native/apply.py upstream --check
+          python3 native/apply.py upstream
+          git -C upstream diff --stat | tee verification/native/patch.txt
+      - name: Inspect toolchain and compile GPUI crate
+        shell: bash
+        run: |
+          command -v cmake || brew install cmake
+          xcodebuild -version | tee verification/native/platform.txt
+          cd upstream
+          rustup show >> ../verification/native/platform.txt
+          cargo check --locked -p dbt_ui --lib 2>&1 | tee ../verification/native/compile.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: native-compile-evidence
+          path: verification/native/
+          retention-days: 14
+# A passing compile is not an app launch, packaging, accessibility, or native UI test.
