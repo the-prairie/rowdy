@@ -1,7 +1,7 @@
 name: Native GPUI compile gate
 on:
   pull_request:
-    paths: ['native/**', '.github/workflows/native-check.yml']
+    paths: ['native/**', 'rowdy/bridge.py', 'tests/test_native_bridge.py', '.github/workflows/native-check.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -14,6 +14,8 @@ jobs:
       CARGO_BUILD_JOBS: '3'
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           repository: arezki1990/dbt-zed
@@ -25,14 +27,22 @@ jobs:
           mkdir -p verification/native
           python3 native/apply.py upstream --check
           python3 native/apply.py upstream
+          python3 native/apply.py upstream --check
           git -C upstream diff --stat | tee verification/native/patch.txt
+      - name: Test native transport failure paths
+        shell: bash
+        run: |
+          cd upstream
+          rustup show > ../verification/native/platform.txt
+          rustc --edition 2021 --test ../native/rowdy_process.rs -o ../verification/native/transport-tests
+          ../verification/native/transport-tests --nocapture 2>&1 | tee ../verification/native/transport.txt
+          rm ../verification/native/transport-tests
       - name: Inspect toolchain and compile GPUI crate
         shell: bash
         run: |
           command -v cmake || brew install cmake
-          xcodebuild -version | tee verification/native/platform.txt
+          xcodebuild -version >> verification/native/platform.txt
           cd upstream
-          rustup show >> ../verification/native/platform.txt
           cargo check --locked -p dbt_ui --lib 2>&1 | tee ../verification/native/compile.txt
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
@@ -40,4 +50,4 @@ jobs:
           name: native-compile-evidence
           path: verification/native/
           retention-days: 14
-# A passing compile is not an app launch, packaging, accessibility, or native UI test.
+# Passing transport tests or cargo check does not establish app launch or UI operation.
