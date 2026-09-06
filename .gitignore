@@ -1,0 +1,15 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+build/
+dist/
+*.egg-info/
+.venv/
+verification/
+*.mp4
+*.webm
+*.wav
+*.sqlite
+*.sqlite3
+runtime.json
+.env

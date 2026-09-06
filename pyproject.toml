@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rowdy-workbench"
+version = "0.6.0"
+description = "Repository-backed SQL investigations, record tracing, and fixed-input live replay"
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "All rights reserved; see LICENSE"}
+dependencies = []
+
+[project.optional-dependencies]
+bigquery = ["google-cloud-bigquery>=3.25,<4", "sqlglot==29.0.1"]
+test = ["playwright==1.57.0"]
+
+[project.scripts]
+rowdy = "rowdy.server:main"
+rowdy-native-bridge = "rowdy.bridge:main"
+
+[tool.setuptools.packages.find]
+include = ["rowdy"]
+
+[tool.setuptools.package-data]
+rowdy = ["web/*.html", "web/*.css", "web/*.js", "web/*.svg", "examples/*/.rowdy/*.json", "examples/*/models/*.sql"]

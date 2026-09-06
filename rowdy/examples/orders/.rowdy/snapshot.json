@@ -1,0 +1,73 @@
+{
+  "version": 1,
+  "tables": {
+    "order_lines": {
+      "columns": [
+        [
+          "tenant",
+          "TEXT"
+        ],
+        [
+          "line_id",
+          "TEXT"
+        ],
+        [
+          "order_id",
+          "TEXT"
+        ],
+        [
+          "event_time",
+          "TEXT"
+        ],
+        [
+          "received_at",
+          "TEXT"
+        ],
+        [
+          "sku",
+          "TEXT"
+        ],
+        [
+          "quantity",
+          "INTEGER"
+        ],
+        [
+          "unit_price",
+          "REAL"
+        ]
+      ],
+      "rows": [
+        [
+          "shop-us",
+          "L-1",
+          "ORD-200",
+          "2026-09-04T10:00:00Z",
+          "2026-09-04T10:00:01Z",
+          "MUG",
+          2,
+          18.0
+        ],
+        [
+          "shop-us",
+          "L-2",
+          "ORD-200",
+          "2026-09-04T10:01:00Z",
+          "2026-09-04T10:01:01Z",
+          "TEA",
+          -1,
+          12.0
+        ],
+        [
+          "shop-ca",
+          "L-1",
+          "ORD-200",
+          "2026-09-04T10:00:00Z",
+          "2026-09-04T10:00:01Z",
+          "MUG",
+          1,
+          21.0
+        ]
+      ]
+    }
+  }
+}
