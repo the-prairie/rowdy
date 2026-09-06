@@ -1,0 +1,37 @@
+name: Native source snapshot
+on:
+  push:
+    branches: [feat/native-investigation-loop]
+    paths: [.github/workflows/native-source.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+          path: rowdy
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          repository: arezki1990/dbt-zed
+          ref: 3ee08f10debe9464b53b3e1241b56b6deb4e79fb
+          persist-credentials: false
+          path: upstream
+      - name: Archive revision-bound source only
+        run: |
+          mkdir evidence
+          git -C rowdy rev-parse HEAD > evidence/rowdy-sha.txt
+          git -C upstream rev-parse HEAD > evidence/upstream-sha.txt
+          git -C rowdy archive --format=tar.gz -o "$PWD/evidence/rowdy-source.tar.gz" HEAD
+          git -C upstream archive --format=tar.gz -o "$PWD/evidence/upstream-api-source.tar.gz" HEAD crates/dbt_ui crates/editor/src crates/workspace/src crates/language/src crates/ui/src crates/gpui/src crates/zed/src/zed/visual_tests.rs crates/zed/Cargo.toml LICENSE-GPL LICENSE-APACHE
+          sha256sum evidence/*.tar.gz > evidence/SHA256SUMS.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: native-source-snapshot
+          path: evidence/
+          retention-days: 7
+          if-no-files-found: error
