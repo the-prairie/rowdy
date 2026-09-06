@@ -12,13 +12,13 @@ def apply(root,check=False):
     if head!=PIN:
         raise ValueError('Upstream revision is not the reviewed pin; do not apply by fuzzy matching')
     lib=root/'crates/dbt_ui/src/dbt_ui.rs';panel=root/'crates/dbt_ui/src/results_panel.rs'
-    modules={name:(Path(__file__).parent/name).read_text() for name in ('rowdy_view.rs','rowdy_process.rs')}
+    modules={name:(Path(__file__).parent/name).read_text() for name in ('rowdy_view.rs','rowdy_process.rs','rowdy_state.rs')}
     text=panel.read_text();libtext=lib.read_text()
     installed='pub mod rowdy_view;' in libtext
     if installed:
         if 'rowdy_view' not in text or any(not (lib.parent/n).is_file() or (lib.parent/n).read_text()!=v for n,v in modules.items()):
             raise ValueError('Existing native integration differs; use a clean checkout of the reviewed pin')
-        return 'already applied; both native modules match'
+        return 'already applied; all native modules match'
     if 'rowdy_view' in text or any((lib.parent/n).exists() for n in modules):
         raise ValueError('Partial native integration found; no files changed')
     replacements=[
