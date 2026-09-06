@@ -28,6 +28,7 @@ pub struct RowdyView {
     result_buffer: Option<BufferKey>,
     result_revision: u64,
     historical: bool,
+    visible: bool,
     trace: Option<Value>,
     selected_event: Option<String>,
     arrival_clock: bool,
@@ -54,7 +55,7 @@ impl RowdyView {
         }));
         Self {
             workspace, state: State::default(), status: "Open a registered SQL file. Cloud adapters stay disabled.".into(),
-            result: None, result_buffer: None, result_revision: 0, historical: false,
+            result: None, result_buffer: None, result_revision: 0, historical: false, visible: false,
             trace: None, selected_event: None, arrival_clock: false,
             surface: Surface::Results, scope: "result".into(), show_scopes: false,
             session: format!("native-{}-{}", std::process::id(), SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_nanos()),
@@ -106,10 +107,19 @@ impl RowdyView {
     }
 
     fn pause(&mut self, cx: &mut Context<Self>) {
+        let interrupted = self.state.pending.is_some();
         self.state.pause(); self.control.take(); self.debounce = Task::ready(());
-        self.historical = self.result.is_some();
+        // Pausing an idle, current result does not invalidate its observation.
+        // In particular its ID cells should remain traceable after Live is off.
+        if interrupted { self.historical = self.result.is_some(); }
         self.status = "Paused. No automatic execution; an already submitted local job may finish within its bound.".into();
         cx.notify();
+    }
+
+    pub fn set_visible(&mut self, visible: bool, cx: &mut Context<Self>) {
+        if self.visible == visible { return; }
+        self.visible = visible;
+        if !visible { self.pause(cx); }
     }
 
     fn current_result(&self) -> bool {
@@ -185,7 +195,7 @@ impl RowdyView {
                     return Err("Trace origin or event shape mismatch".to_owned());
                 }
             } else if r["sql"] != payload["sql"] || r["request"] != payload["request"] || r["session"] != payload["session"]
-                || r["stage"] != payload["stage"] || r["kind"] != if operation == Operation::Verify { "verification" } else { "preview" }
+                || r["stage"] != payload["stage"] || r["kind"] != (if operation == Operation::Verify { "verification" } else { "preview" })
                 || r["warehouse_verified"] != false || r["deployed"] != false || r["consumer_verified"] != false {
                 return Err("Preview is not evidence for this buffer and operation".to_owned());
             }
@@ -257,7 +267,7 @@ impl RowdyView {
         let trace_cfg = &response["binding"]["trace"];
         let mut body = v_flex().gap_2().child(Label::new(format!("{} · scope {} · {} rows", text(&receipt["model"]), text(&receipt["stage"]), rows.len())).size(LabelSize::Small));
         if let Some(watch) = self.render_watch(response) { body = body.child(watch); }
-        let mut table = v_flex().gap_1().child(h_flex().children(columns.iter().map(|c| div().w(px(170.)).flex_none().child(Label::new(text(c)).size(LabelSize::Small)))));
+        let mut table = v_flex().w(px(columns.len() as f32 * 170.)).gap_1().child(h_flex().children(columns.iter().map(|c| div().w(px(170.)).flex_none().child(Label::new(text(c)).size(LabelSize::Small)))));
         for (row_index, row) in rows.iter().take(100).enumerate() {
             let mut line = h_flex();
             for column in &columns {
@@ -308,12 +318,14 @@ impl RowdyView {
         if difference["available"] == false {
             return view.child(Label::new(text(&difference["reason"])).color(Color::Warning)).into_any_element();
         }
-        for (name, label) in [("added","Added"),("removed","Removed"),("changed","Changed")] {
-            if let Some(rows) = difference[name].as_array() {
-                view = view.child(Label::new(format!("{label}: {}",rows.len())).size(LabelSize::Small));
-                for row in rows.iter().take(30) { view = view.child(Label::new(text(row)).size(LabelSize::Small)); }
-                if rows.len()>30 { view=view.child(Label::new("First 30 differences shown.").size(LabelSize::Small)); }
+        view = view.child(Label::new(format!("Added {} · Removed {} · Changed {}", text(&difference["added"]), text(&difference["removed"]), text(&difference["changed"]))).size(LabelSize::Small));
+        if let Some(changes) = difference["changes"].as_array() {
+            for change in changes.iter().take(30) {
+                view = view.child(Label::new(format!("{} · key {}", text(&change["kind"]), text(&change["key"]))).size(LabelSize::Small));
+                view = view.child(Label::new(format!("Before: {}", text(&change["before"]))).size(LabelSize::Small));
+                view = view.child(Label::new(format!("After: {}", text(&change["after"]))).size(LabelSize::Small));
             }
+            if changes.len() > 30 { view = view.child(Label::new("First 30 differences shown.").size(LabelSize::Small)); }
         }
         if let Some(items) = receipt["downstream"].as_array() {
             for item in items {
@@ -343,7 +355,7 @@ impl RowdyView {
             .child(Label::new(format!("{} = {} · {}",text(&trace["root"]["type"]),text(&trace["root"]["value"]),text(&trace["root"]["namespace"]))).color(Color::Accent))
             .child(Label::new(format!("Captured saved-source snapshot · {} to {} · origin {}",text(&trace["start"]),text(&trace["end"]),text(&trace["origin_run"]))).size(LabelSize::Small))
             .child(Button::new("rowdy-trace-clock",if self.arrival_clock {"Arrival time"} else {"Event time"}).on_click(cx.listener(|this,_,_,cx| {this.arrival_clock=!this.arrival_clock;cx.notify();})));
-        for (index,event) in events.iter().enumerate() {
+        for (index,event) in events.iter().take(100).enumerate() {
             let id=text(&event["id"]); let selected=self.selected_event.as_deref()==Some(id.as_str());
             view=view.child(Button::new(SharedString::from(format!("rowdy-event-{index}")),format!("{} · {} · {}",text(&event[clock]),id,text(&event["name"])))
                 .toggle_state(selected).on_click(cx.listener(move |this,_,_,cx| {this.selected_event=Some(id.clone());cx.notify();})));
@@ -361,6 +373,7 @@ impl RowdyView {
                 }
             }
         }
+        if events.len()>100 { view=view.child(Label::new(format!("First 100 of {} events displayed; original trace remains complete.",events.len())).size(LabelSize::Small)); }
         view=view.child(Label::new(format!("Unresolved identity evidence: {} record(s). No person merge inferred.",trace["unresolved"].as_array().map_or(0,Vec::len))).size(LabelSize::Small));
         for source in trace["coverage"].as_array().into_iter().flatten() {
             view=view.child(Label::new(format!("{} · {}",text(&source["name"]),text(&source["status"]))).size(LabelSize::Small));
@@ -396,7 +409,7 @@ impl Render for RowdyView {
             }
             let mut scopes=h_flex().gap_1().flex_wrap();
             for (i,name) in names.into_iter().enumerate() {
-                scopes=scopes.child(Button::new(SharedString::from(format!("rowdy-scope-{i}")),name.clone()).on_click(cx.listener(move|this,_,_,cx|{this.scope=name.clone();this.show_scopes=false;this.execute(Operation::Preview,None,cx);})));
+                scopes=scopes.child(Button::new(SharedString::from(format!("rowdy-scope-{i}")),name.clone()).on_click(cx.listener(move|this,_,_,cx|{this.scope=name.clone();this.show_scopes=false;this.execute(Operation::Preview,None,cx);}))); 
             }
             content=content.child(scopes);
         }
