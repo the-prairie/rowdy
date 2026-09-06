@@ -65,9 +65,15 @@ impl RowdyView {
 }
 '''
     replace('crates/zed/src/visual_test_runner.rs',
-            '    let project_path = canonical_temp.join("project");',
+            '''    let project_path = canonical_temp.join("project");
+    std::fs::create_dir_all(&project_path).expect("Failed to create project directory");
+
+    // Create test files in the real filesystem''',
             '''    let project_path = std::env::var("ROWDY_NATIVE_PROJECT").map(PathBuf::from)
-        .unwrap_or_else(|_| canonical_temp.join("project"));''')
+        .unwrap_or_else(|_| canonical_temp.join("project"));
+    std::fs::create_dir_all(&project_path).expect("Failed to create project directory");
+
+    // Create test files in the real filesystem''')
     replace('crates/zed/src/visual_test_runner.rs',
             '    create_test_files(&project_path);',
             '    if std::env::var("ROWDY_NATIVE_PROJECT").is_err() { create_test_files(&project_path); }')
