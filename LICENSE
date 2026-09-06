@@ -1,0 +1,7 @@
+Rowdy application and service: all rights reserved by the respective copyright holders.
+No general open-source license is granted for these files in this release.
+
+The optional native/rowdy_view.rs integration is separately marked GPL-3.0-only for
+combination with the GPL-licensed upstream Zed fork. Consult its upstream licenses before
+distributing a combined editor. A public repository is not a grant of rights to private
+company data, research, trademarks, or operational records; none is included here.

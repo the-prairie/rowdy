@@ -1,0 +1,68 @@
+name: Import verified public source
+# One-time, review-branch-only transport. The commit produced here contains ordinary
+# readable source. The payload is public-safe UTF-8, not a runtime dependency.
+on:
+  push:
+    branches: [feat/rowdy-workbench]
+    paths: ['delivery/**']
+permissions:
+  contents: write
+jobs:
+  import-source:
+    if: github.repository == 'the-prairie/rowdy' && github.ref == 'refs/heads/feat/rowdy-workbench'
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+      - name: Verify and unpack public source
+        shell: bash
+        run: |
+          python - <<'PY'
+          import base64, hashlib, json, lzma
+          from pathlib import Path, PurePosixPath
+          root = Path.cwd()
+          manifest = json.loads((root / 'delivery/manifest.json').read_text())
+          assert manifest['format'] == 'rowdy-public-source-delivery-v1'
+          assert manifest['sha256'] == '6c5d02728104f3321d279e973918f749e48bbf79ba33f951fb745226f1c242db'
+          assert manifest['bytes'] == 231719 and manifest['files'] == 43
+          assert manifest['parts'] == [f'part-{i:02d}.txt' for i in range(7)]
+          encoded = ''.join((root / 'delivery' / p).read_text() for p in manifest['parts'])
+          packed = base64.b64decode(encoded, validate=True)
+          unpacker = lzma.LZMADecompressor(memlimit=128 * 1024 * 1024)
+          data = unpacker.decompress(packed, max_length=manifest['bytes'] + 1)
+          assert unpacker.eof and not unpacker.unused_data
+          assert len(data) == manifest['bytes']
+          assert hashlib.sha256(data).hexdigest() == manifest['sha256']
+          files = json.loads(data)
+          assert isinstance(files, dict) and len(files) == manifest['files']
+          for name, content in files.items():
+              path = PurePosixPath(name)
+              assert isinstance(content, str) and not path.is_absolute()
+              assert str(path) == name and '..' not in path.parts
+              assert not any(part in ('.git', '.github', 'delivery') for part in path.parts)
+              dest = root / name
+              assert not dest.is_symlink()
+              assert not dest.exists() or name == 'README.md', f'Refusing overwrite: {name}'
+          for name, content in files.items():
+              dest = root / name
+              dest.parent.mkdir(parents=True, exist_ok=True)
+              dest.write_text(content, encoding='utf-8')
+          (root / 'start-rowdy').chmod(0o755)
+          print('Verified and unpacked 43 public source files; no runtime credentials.')
+          PY
+      - name: Run source tests and build package
+        run: |
+          python -m unittest discover -s tests -v
+          python -m pip install 'setuptools>=68' wheel
+          python -m pip wheel --no-deps --no-build-isolation . -w /tmp/rowdy-built
+      - name: Commit ordinary source to the review branch
+        run: |
+          git rm -r delivery
+          git add README.md .gitignore AGENTS.md LICENSE docs native pyproject.toml rowdy scripts start-rowdy tests
+          git config user.name 'Rowdy delivery automation'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'feat: add repository-backed Rowdy workbench and verified public examples'
+          git push origin HEAD:refs/heads/feat/rowdy-workbench

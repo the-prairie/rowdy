@@ -1,0 +1,59 @@
+{
+  "version": 1,
+  "id": "orders-demo",
+  "title": "Order reconciliation",
+  "description": "A second profile. No web-event assumptions.",
+  "data_mode": "synthetic",
+  "snapshot": ".rowdy/snapshot.json",
+  "default_model": "accepted_items",
+  "models": [
+    {
+      "name": "accepted_items",
+      "file": "models/accepted_items.sql",
+      "grain": "One row per tenant + order line",
+      "keys": [
+        "tenant",
+        "line_id"
+      ],
+      "watch_input": "order_lines",
+      "checks": [
+        {
+          "id": "sale",
+          "title": "Two mugs total 36",
+          "sql": "SELECT amount FROM accepted_items WHERE tenant='shop-us' AND line_id='L-1'",
+          "expected": [
+            {
+              "amount": 36.0
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "trace": {
+    "identities": [
+      "order_id",
+      "line_id"
+    ],
+    "namespace": "tenant",
+    "default_namespace": "shop-us",
+    "event_key": "line_id",
+    "label": "sku",
+    "event_time": "event_time",
+    "arrival_time": "received_at",
+    "window": [
+      "2026-09-04T09:00:00Z",
+      "2026-09-04T12:00:00Z"
+    ],
+    "stages": [
+      {
+        "name": "Source order lines",
+        "table": "order_lines"
+      },
+      {
+        "name": "Accepted lines",
+        "table": "accepted_items"
+      }
+    ]
+  }
+}

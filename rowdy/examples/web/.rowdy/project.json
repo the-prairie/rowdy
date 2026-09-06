@@ -1,0 +1,151 @@
+{
+  "version": 1,
+  "id": "web-demo",
+  "title": "Web sessions",
+  "description": "Find the event that arrived but never made it through.",
+  "data_mode": "synthetic",
+  "snapshot": ".rowdy/snapshot.json",
+  "default_model": "session_summary",
+  "models": [
+    {
+      "name": "staged_events",
+      "file": "models/staged_events.sql",
+      "grain": "One row per namespace + event",
+      "keys": [
+        "namespace",
+        "event_id"
+      ]
+    },
+    {
+      "name": "unified_events",
+      "file": "models/unified_events.sql",
+      "grain": "One row per namespace + event",
+      "keys": [
+        "namespace",
+        "event_id"
+      ],
+      "watch_input": "staged_events",
+      "checks": [
+        {
+          "id": "version2",
+          "title": "Retain the version-2 completion",
+          "sql": "SELECT COUNT(*) AS count FROM unified_events WHERE namespace='web-us' AND event_id='E-006'",
+          "expected": [
+            {
+              "count": 1
+            }
+          ]
+        },
+        {
+          "id": "control",
+          "title": "Keep the working version-1 completion",
+          "sql": "SELECT COUNT(*) AS count FROM unified_events WHERE namespace='web-us' AND event_id='E-024'",
+          "expected": [
+            {
+              "count": 1
+            }
+          ]
+        },
+        {
+          "id": "duplicate",
+          "title": "One event from two delivery attempts",
+          "sql": "SELECT COUNT(*) AS count FROM unified_events WHERE namespace='web-us' AND event_id='E-004'",
+          "expected": [
+            {
+              "count": 1
+            }
+          ]
+        },
+        {
+          "id": "unresolved",
+          "title": "Do not assign a shared device to a person",
+          "sql": "SELECT user_id FROM unified_events WHERE namespace='web-us' AND event_id='E-032'",
+          "expected": [
+            {
+              "user_id": null
+            }
+          ]
+        },
+        {
+          "id": "grain",
+          "title": "Namespace + event remains a unique key",
+          "sql": "SELECT namespace,event_id,COUNT(*) AS count FROM unified_events GROUP BY namespace,event_id HAVING COUNT(*)>1",
+          "expected": []
+        }
+      ],
+      "observe": [
+        {
+          "title": "Watched session completions",
+          "model": "session_summary",
+          "sql": "SELECT session_id,completions FROM session_summary WHERE namespace='web-us' AND session_id='S-03'"
+        }
+      ]
+    },
+    {
+      "name": "session_summary",
+      "file": "models/session_summary.sql",
+      "grain": "One row per namespace + session",
+      "keys": [
+        "namespace",
+        "session_id"
+      ]
+    }
+  ],
+  "trace": {
+    "identities": [
+      "user_id",
+      "anonymous_id",
+      "session_id",
+      "event_id",
+      "request_id",
+      "submission_id"
+    ],
+    "namespace": "namespace",
+    "default_namespace": "web-us",
+    "event_key": "event_id",
+    "label": "event_name",
+    "event_time": "event_time",
+    "arrival_time": "received_at",
+    "window": [
+      "2026-09-04T09:00:00Z",
+      "2026-09-04T12:00:00Z"
+    ],
+    "stages": [
+      {
+        "name": "Received",
+        "table": "raw_events"
+      },
+      {
+        "name": "Staged",
+        "table": "staged_events"
+      },
+      {
+        "name": "Unified",
+        "table": "unified_events"
+      },
+      {
+        "name": "Sessions",
+        "table": "session_summary",
+        "aggregate_key": "session_id"
+      }
+    ],
+    "bridge": {
+      "table": "identity_map",
+      "user": "user_id",
+      "device": "anonymous_id",
+      "session": "session_id",
+      "start": "valid_from",
+      "end": "valid_to"
+    },
+    "unavailable": [
+      {
+        "name": "Application logs",
+        "status": "not_connected"
+      },
+      {
+        "name": "History before snapshot",
+        "status": "not_available"
+      }
+    ]
+  }
+}
