@@ -22,6 +22,8 @@ def apply(root,check=False):
     if 'rowdy_view' in text or any((lib.parent/n).exists() for n in modules):
         raise ValueError('Partial native integration found; no files changed')
     replacements=[
+      ('        if self.view == ResultsView::Connection {\n            self.ensure_connection(cx);', '        self.rowdy_view.update(cx, |view, cx| view.set_visible(self.view == ResultsView::Rowdy, cx));\n        if self.view == ResultsView::Connection {\n            self.ensure_connection(cx);'),
+      ('    fn default_size(&self, _window: &Window, _cx: &App) -> Pixels {', '    fn set_active(&mut self, active: bool, _window: &mut Window, cx: &mut Context<Self>) {\n        self.rowdy_view.update(cx, |view, cx| view.set_visible(active && self.view == ResultsView::Rowdy, cx));\n    }\n\n    fn default_size(&self, _window: &Window, _cx: &App) -> Pixels {'),
       ('    _run: Task<()>,','    rowdy_view: Entity<crate::rowdy_view::RowdyView>,\n    _run: Task<()>,') ,
       ('    Connection,\n}', '    Connection,\n    Rowdy,\n}'),
       ('            Self {\n            focus_handle:', '            let rowdy_view = cx.new(|cx| crate::rowdy_view::RowdyView::new(workspace_handle.clone(), cx));\n            Self {\n            focus_handle:'),
