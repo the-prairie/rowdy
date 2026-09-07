@@ -1,0 +1,30 @@
+name: macOS local service acceptance
+on:
+  pull_request:
+    paths: ['rowdy/**', 'tests/**', '.github/workflows/native-service.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  mac-service:
+    runs-on: macos-15
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+      - name: Record actual local engine capabilities and run the full service suite
+        shell: bash
+        run: |
+          mkdir -p verification/mac-service
+          python -c "import sqlite3,sys;print(sys.version);print(sqlite3.sqlite_version);print('extension-control:',hasattr(sqlite3.Connection,'enable_load_extension'))" | tee verification/mac-service/platform.txt
+          python -m unittest discover -s tests -v 2>&1 | tee verification/mac-service/tests.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: mac-service-evidence
+          path: verification/mac-service/
+          retention-days: 14
