@@ -61,7 +61,7 @@ in the example profile; it is not automatic product approval of a business rule.
 | Multiple profiles | Two unrelated registered examples; third profiles need their own tests |
 | dbt Core | Explicit CLI adapter + artifact checks; intended-version/live-project tests still required |
 | BigQuery | Explicit SDK plan/execute adapter; requires optional dependencies, approved profile and ADC; no live job verified here |
-| Native Zed | GPUI integration source and stdio bridge; **native compilation and Mac runtime remain unverified** |
+| Native Zed | GPUI trace/live/checks and guarded file-change integration; separate Mac compile/runtime gates; not a packaged pilot |
 | AI | No bundled LLM or pretend AI animation |
 
 The browser interface is the verified reference client. It is not represented as the

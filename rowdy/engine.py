@@ -26,14 +26,31 @@ def validate_sql(sql):
     return sql[:ts[-1].start].rstrip() if ts[-1].value == ';' and ts[-1].kind == 'punct' else sql.rstrip()
 
 
+def replay_connection():
+    """Create a local connection with extension loading disabled where supported.
+
+    CPython builds without loadable-extension support (notably macOS) omit
+    enable_load_extension entirely. Missing support is safe; failure of an
+    available control is not. SQL still passes the independent authorizer.
+    """
+    connection = sqlite3.connect(':memory:')
+    try:
+        disable_extensions = getattr(connection, 'enable_load_extension', None)
+        if disable_extensions is not None:
+            disable_extensions(False)
+        return connection
+    except BaseException:
+        connection.close()
+        raise
+
+
 class Replay:
     def __init__(self, context, selected=None, sql=None, cancel=lambda: False):
         self.context = context
         self.deadline = time.monotonic() + 1.8
         self.cancel = cancel
         self.scalar = False
-        self.db = sqlite3.connect(':memory:')
-        self.db.enable_load_extension(False)
+        self.db = replay_connection()
         self.db.execute('PRAGMA temp_store=MEMORY')
         self.db.execute('PRAGMA trusted_schema=OFF')
         for attr, value in [('SQLITE_LIMIT_LENGTH', 1000000), ('SQLITE_LIMIT_SQL_LENGTH', 65536),

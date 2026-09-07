@@ -1,10 +1,13 @@
 name: Native GPUI compile gate
 on:
   pull_request:
-    paths: ['native/**', 'rowdy/bridge.py', 'tests/test_native_bridge.py', '.github/workflows/native-check.yml']
+    paths: ['native/**', 'rowdy/bridge.py', 'rowdy/native_actions.py', 'tests/test_native*.py', '.github/workflows/native-check.yml']
   workflow_dispatch:
 permissions:
   contents: read
+concurrency:
+  group: rowdy-native-check-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   native-compile:
     runs-on: macos-14
@@ -29,7 +32,7 @@ jobs:
           python3 native/apply.py upstream
           python3 native/apply.py upstream --check
           git -C upstream diff --stat | tee verification/native/patch.txt
-      - name: Test native transport failure paths
+      - name: Test native transport and lifecycle failure paths
         shell: bash
         run: |
           cd upstream
@@ -37,6 +40,9 @@ jobs:
           rustc --edition 2021 --test ../native/rowdy_process.rs -o ../verification/native/transport-tests
           ../verification/native/transport-tests --nocapture 2>&1 | tee ../verification/native/transport.txt
           rm ../verification/native/transport-tests
+          rustc --edition 2021 --test ../native/rowdy_state.rs -o ../verification/native/state-tests
+          ../verification/native/state-tests --nocapture 2>&1 | tee ../verification/native/state.txt
+          rm ../verification/native/state-tests
       - name: Inspect toolchain and compile GPUI crate
         shell: bash
         run: |
