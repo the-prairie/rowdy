@@ -72,7 +72,10 @@ def dispatch(service, body):
         raise ValueError('Invalid native edit envelope')
     payload = validate(body['payload']); project = service.project(body['project'])
     model = project.model(body['model']); operation = payload['operation']
-    if str(project.path(model['file'])) != payload['path']:
+    # macOS /var and /private/var can name the same registered resource.
+    # Keep the caller's spelling in the response, but authorize the real path;
+    # Project.path independently rejects symlinks inside the registered project.
+    if project.path(model['file']) != Path(payload['path']).resolve(strict=True):
         raise ValueError('Native edit file/model mismatch')
     if service.core[body['project']].enabled or service.bq[body['project']].enabled:
         raise ValueError('Native iteration requires cloud adapters disabled')

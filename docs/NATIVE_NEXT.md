@@ -1,4 +1,9 @@
-# Native preview lifecycle — issue #2 continuation
+# Native preview lifecycle — historical PR #6 increment
+
+This document describes the narrower PR #6 increment, not the latest PR #7 scope.
+The current trace/live/guarded-write integration is documented in
+[`native/README.md`](../native/README.md). Keep these historical verification
+boundaries distinct from later observed CI evidence.
 
 ## What this change does
 

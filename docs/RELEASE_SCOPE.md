@@ -16,9 +16,15 @@ New foundations: registered file-backed projects, source and semantic context gu
 real Git-aware apply/undo, configuration-driven trace/replay, source-scoped metadata,
 explicit Core and BigQuery adapter paths, and a tested stdio host bridge.
 
+Native continuation: typed ID tracing, fixed-input live buffers, scoped differences and
+checks, and an explicit reviewed apply/undo protocol. Cloud-enabled services are rejected
+by the native channel. See `native/README.md` for the implementation and acceptance scope.
+
 ## Not represented as finished
 
-- Native Zed/GPUI app compilation, packaging, full trace/live controls or target-Mac operation.
+- A packaged, branded native application, updater/data-directory isolation and target-user Mac acceptance.
+  The GPUI trace/live/checks and guarded apply/undo implementation has separate compile
+  and Metal visual-runtime gates; consult their observed outcomes in PR #7.
 - BigQuery execution or intended-version Core compilation/test against the user's real project.
 - DuckDB engine or GoogleSQL/local equivalence corpus; no dialect substitution.
 - Enterprise privacy/PHI permission, retention, encryption and export policy.

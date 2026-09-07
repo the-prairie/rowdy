@@ -61,14 +61,6 @@ jobs:
           cd upstream
           rustup show > ../verification/native-visual/toolchain.txt
           cargo build --locked -p zed --bin zed_visual_test_runner --features visual-tests,gpui_platform/runtime_shaders 2>&1 | tee ../verification/native-visual/build.txt
-      - uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830
-        if: always() && steps.build.outcome == 'success' && steps.native-cache.outputs.cache-hit != 'true' && github.event.pull_request.head.repo.full_name == github.repository
-        with:
-          path: |
-            upstream/target
-            ~/.cargo/registry
-            ~/.cargo/git
-          key: rowdy-metal-macos15-3ee08f1-1.97.1-v1-${{ github.sha }}
       - name: Exercise native pointer callbacks and live buffer changes
         run: python scripts/verify_native_visual.py --binary upstream/target/debug/zed_visual_test_runner --out verification/native-visual
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
@@ -78,5 +70,15 @@ jobs:
           path: verification/native-visual/
           retention-days: 14
           if-no-files-found: error
+      - uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830
+        timeout-minutes: 5
+        continue-on-error: true
+        if: always() && steps.build.outcome == 'success' && steps.native-cache.outputs.cache-hit != 'true' && github.event.pull_request.head.repo.full_name == github.repository
+        with:
+          path: |
+            upstream/target
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: rowdy-metal-macos15-3ee08f1-1.97.1-v1-${{ github.sha }}
 # Direct Metal captures; no OS privacy changes or cloud access. Compile cache
 # contains only public source/dependencies, never credentials or Rowdy state.
