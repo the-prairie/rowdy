@@ -1,7 +1,7 @@
 name: Native GPUI runtime evidence
 on:
   pull_request:
-    paths: ['native/**', 'rowdy/native_actions.py', 'rowdy/native_edits.py', 'scripts/verify_native_visual.py', '.github/workflows/native-visual.yml']
+    paths: ['native/**', 'rowdy/**', 'scripts/verify_native_visual.py', '.github/workflows/native-visual.yml']
   workflow_dispatch:
 permissions:
   contents: read
