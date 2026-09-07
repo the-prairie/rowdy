@@ -90,7 +90,23 @@ impl RowdyView {
     replace('crates/zed/src/visual_test_runner.rs',
             '    // Open main.rs in the editor',
             '''    if std::env::var("ROWDY_NATIVE_PROJECT").is_ok() {
-        return rowdy_visual_smoke::run(&mut cx, workspace_window, project_path);
+        let result = rowdy_visual_smoke::run(&mut cx, workspace_window, project_path);
+        if let Err(error) = &result { eprintln!("ROWDY_NATIVE_FAILURE: {error:#}"); }
+        // Preserve the normal runner's cleanup: a leaked editor must not mask
+        // the actual failed assertion. This does not suppress leak detection.
+        workspace_window.update(&mut cx, |workspace, _, cx| {
+            workspace.project().clone().update(cx, |project, cx| {
+                let ids: Vec<_> = project.worktrees(cx).map(|w| w.read(cx).id()).collect();
+                for id in ids { project.remove_worktree(id, cx); }
+            });
+        }).log_err();
+        cx.run_until_parked();
+        cx.update_window(workspace_window.into(), |_, window, _| window.remove_window()).log_err();
+        for _ in 0..30 {
+            cx.advance_clock(Duration::from_millis(100));
+            cx.run_until_parked();
+        }
+        return result;
     }
 
     // Open main.rs in the editor''')
