@@ -26,6 +26,7 @@ jobs:
           mkdir evidence
           git -C rowdy rev-parse HEAD > evidence/rowdy-sha.txt
           git -C upstream rev-parse HEAD > evidence/upstream-sha.txt
+          git -C upstream ls-tree -r --name-only HEAD > evidence/upstream-files.txt
           git -C rowdy archive --format=tar.gz -o "$PWD/evidence/rowdy-source.tar.gz" HEAD
           git -C upstream archive --format=tar.gz -o "$PWD/evidence/upstream-api-source.tar.gz" HEAD crates/dbt_ui crates/editor/src crates/workspace/src crates/language/src crates/ui/src crates/gpui/src crates/zed/src crates/zed/Cargo.toml LICENSE-GPL LICENSE-APACHE
           sha256sum evidence/*.tar.gz > evidence/SHA256SUMS.txt
