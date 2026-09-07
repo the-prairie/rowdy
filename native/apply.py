@@ -2,6 +2,7 @@
 from pathlib import Path
 import argparse
 import subprocess
+from rowdy_edit_hooks import extend_view
 
 PIN='3ee08f10debe9464b53b3e1241b56b6deb4e79fb'
 
@@ -12,7 +13,8 @@ def apply(root,check=False):
     if head!=PIN:
         raise ValueError('Upstream revision is not the reviewed pin; do not apply by fuzzy matching')
     lib=root/'crates/dbt_ui/src/dbt_ui.rs';panel=root/'crates/dbt_ui/src/results_panel.rs'
-    modules={name:(Path(__file__).parent/name).read_text() for name in ('rowdy_view.rs','rowdy_process.rs','rowdy_state.rs')}
+    modules={name:(Path(__file__).parent/name).read_text() for name in ('rowdy_view.rs','rowdy_process.rs','rowdy_state.rs','rowdy_edits.rs')}
+    modules["rowdy_view.rs"] = extend_view(modules["rowdy_view.rs"])
     text=panel.read_text();libtext=lib.read_text()
     installed='pub mod rowdy_view;' in libtext
     if installed:

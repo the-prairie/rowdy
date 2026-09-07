@@ -86,7 +86,7 @@ class Service:
             checks=data['checks']
             data.update(model=model,sql=body['sql'],request=request,session=session,
                         status=('passed' if checks and all(c['status']=='passed' for c in checks) else 'not_passed' if checks else 'unverified') if body.get('verify') else 'executed',
-                        warehouse_verified=False,deployed=False,consumer_verified=False)
+                        warehouse_verified=False,deployed=False,consumer_verified=False,git_identity=ctx['git'])
             return self.receipt(project,kind,data)
         finally:
             self.slots.release()

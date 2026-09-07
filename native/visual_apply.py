@@ -61,7 +61,8 @@ impl RowdyView {
         json!({"live":self.state.live,"pending":self.state.pending.is_some(),
             "historical":self.historical,"visible":self.visible,"status":self.status,
             "generation":self.state.generation,"revision":self.state.revision,
-            "result":self.result,"trace":self.trace,"selected_event":self.selected_event})
+            "result":self.result,"trace":self.trace,"selected_event":self.selected_event,
+            "edit_busy":self.edits.busy,"review":self.edits.review,"last_change":self.edits.last_change})
     }
 }
 '''
@@ -92,8 +93,8 @@ impl RowdyView {
             '''    if std::env::var("ROWDY_NATIVE_PROJECT").is_ok() {
         let result = rowdy_visual_smoke::run(&mut cx, workspace_window, project_path);
         if let Err(error) = &result { eprintln!("ROWDY_NATIVE_FAILURE: {error:#}"); }
-        // Preserve the normal runner's cleanup: a leaked editor must not mask
-        // the actual failed assertion. This does not suppress leak detection.
+        // The test runner normally performs this cleanup at its end. The Rowdy
+        // branch must not bypass it: leaked editor handles can mask the real error.
         workspace_window.update(&mut cx, |workspace, _, cx| {
             workspace.project().clone().update(cx, |project, cx| {
                 let ids: Vec<_> = project.worktrees(cx).map(|w| w.read(cx).id()).collect();

@@ -90,6 +90,9 @@ class Handler(BaseHTTPRequestHandler):
             elif path=='/api/cancel':result=s.cancel(b['project'],b['model'],b['session'],b['request'])
             elif path=='/api/trace':result=s.record_trace(b)
             elif path=='/api/apply':result=s.apply(b)
+            elif path=='/api/native-edit':
+                from .native_edits import dispatch
+                result=dispatch(s,b)
             elif path=='/api/core':result=s.core[b['project']].run(b['model'],b['action'],b['context_hash'])
             elif path=='/api/bigquery/plan':result=s.bq[b['project']].plan(b['sql'],b['context_hash'])
             elif path=='/api/bigquery/execute':result=s.bq[b['project']].execute(b['plan_id'])

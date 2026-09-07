@@ -24,9 +24,9 @@ def run(binary, output):
         home = Path(directory).resolve() / 'state'
         home.mkdir(mode=0o700)
         roots = examples(home)
-        # Explicit all-off capabilities, including source writes. The only file
-        # creation above initializes the synthetic test projects.
-        server = Server(roots, home, allow_dbt=False, allow_bigquery=False, writable=False)
+        # Explicit cloud-off capabilities. Reviewed writes are enabled only for
+        # the disposable synthetic test projects; the flow must undo its edit.
+        server = Server(roots, home, allow_dbt=False, allow_bigquery=False, writable=True)
         thread = threading.Thread(target=server.serve_forever, daemon=True); thread.start()
         env = {k: v for k, v in os.environ.items() if not any(s in k.upper() for s in ('TOKEN', 'SECRET', 'CREDENTIAL', 'API_KEY'))}
         env.update(ROWDY_HOME=str(home), ROWDY_PYTHON=sys.executable,
@@ -39,9 +39,9 @@ def run(binary, output):
             if completed.returncode != 0 or not result_path.exists():
                 raise RuntimeError('Native runtime did not pass; inspect native-runtime.txt')
             result = json.loads(result_path.read_text())
-            if result.get('status') != 'passed' or result.get('cloud_enabled') is not False:
+            if result.get('status') != 'passed' or result.get('cloud_enabled') is not False or result.get('guarded_apply_undo') is not True:
                 raise RuntimeError('Incomplete or unsafe native evidence')
-            if len(list(output.glob('*native*.png'))) != 5:
+            if len(list(output.glob('*native*.png'))) != 9:
                 raise RuntimeError('Expected real native captures not found')
             print('Native GPUI pointer/buffer/bridge/service workflow passed. Not a signed app or cloud test.')
         finally:

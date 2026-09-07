@@ -10,12 +10,13 @@ use std::time::Instant;
 
 fn paint(cx: &mut VisualTestAppContext, window: WindowHandle<Workspace>) -> Result<()> {
     cx.run_until_parked();
-    cx.update_window(window.into(), |_, window, cx| window.draw(cx).clear(cx))?;
+    cx.update_window(window.into(), |_, window, cx| { window.refresh(); window.draw(cx).clear(cx); })?;
     Ok(())
 }
 
 fn click(cx: &mut VisualTestAppContext, window: WindowHandle<Workspace>, id: &str) -> Result<()> {
-    let in_content=id.starts_with("rowdy-event-") || id.starts_with("rowdy-open-") || id.starts_with("rowdy-id-");
+    eprintln!("ROWDY_NATIVE_CLICK: {id}");
+    let in_content=id.starts_with("rowdy-event-") || id.starts_with("rowdy-open-") || id.starts_with("rowdy-id-") || id.starts_with("rowdy-confirm-") || id=="rowdy-review-undo";
     for _ in 0..16 {
         paint(cx,window)?;
         let (bounds,content)=cx.update_window(window.into(),|_,window,_|
@@ -91,6 +92,7 @@ pub fn run(cx: &mut VisualTestAppContext, window: WindowHandle<Workspace>, root:
         workspace.bottom_dock().clone().update(cx,|dock,cx|dock.resize_panel_sizes(Some(px(480.)),None,window,cx));
     })?;
     open(cx,window,root.join("models/session_summary.sql"))?;
+    image(cx,window,&out,"00-native-initial.png")?;
     click(cx,window,"rowdy-preview")?;
     let first=wait(cx,window,&view,|s|!s["pending"].as_bool().unwrap_or(true) && s["result"].is_object())?;
     ensure!(!first["historical"].as_bool().unwrap(),"First native result historical");
@@ -155,12 +157,35 @@ pub fn run(cx: &mut VisualTestAppContext, window: WindowHandle<Workspace>, root:
     let focused=window.update(cx,|workspace,window,cx|workspace.active_item(cx).and_then(|i|i.act_as::<editor::Editor>(cx)).unwrap().read(cx).focus_handle(cx).is_focused(window))?;
     ensure!(focused,"Return to editor lost focus");
     ensure!(std::fs::read_to_string(root.join("models/unified_events.sql"))?==sql,"Native replay wrote source");
+    // Restore and re-verify the candidate. A passing preview is not enough to
+    // enable a source change; review and confirmation are separate real clicks.
+    edit(cx,window,&fixed)?;
+    click(cx,window,"rowdy-verify")?;
+    wait(cx,window,&view,|s|s["result"]["receipt"]["sql"]==fixed && s["result"]["receipt"]["status"]=="passed" && s["pending"]==false)?;
+    click(cx,window,"rowdy-review")?;
+    wait(cx,window,&view,|s|s["edit_busy"]==false && s["review"]["receipt"]["status"]=="ready")?;
+    ensure!(std::fs::read_to_string(root.join("models/unified_events.sql"))?==sql,"Review must not write source");
+    image(cx,window,&out,"06-native-review.png")?;
+    click(cx,window,"rowdy-confirm-edit")?;
+    let applied=wait(cx,window,&view,|s|s["edit_busy"]==false && s["last_change"]["receipt"]["status"]=="applied")?;
+    ensure!(std::fs::read_to_string(root.join("models/unified_events.sql"))?==fixed,"Guarded apply did not update disk");
+    ensure!(applied["last_change"]["receipt"]["git_diff"].as_str().unwrap_or("").contains("schema_version IN (1, 2)"),"Missing actual Git diff");
+    image(cx,window,&out,"07-native-applied.png")?;
+    click(cx,window,"rowdy-review-undo")?;
+    wait(cx,window,&view,|s|s["edit_busy"]==false && s["review"]["receipt"]["direction"]=="undo")?;
+    click(cx,window,"rowdy-confirm-edit")?;
+    let undone=wait(cx,window,&view,|s|s["edit_busy"]==false && s["last_change"]["receipt"]["status"]=="undone")?;
+    ensure!(std::fs::read_to_string(root.join("models/unified_events.sql"))?==sql,"Guarded undo did not restore disk");
+    ensure!(undone["last_change"]["receipt"]["git_diff"]=="","Undo left unexpected source diff");
+    let editor_text=window.update(cx,|workspace,_,cx|workspace.active_item(cx).and_then(|i|i.act_as::<editor::Editor>(cx)).unwrap().read(cx).text(cx))?;
+    ensure!(editor_text==sql,"Editor not synchronized after guarded undo");
+    image(cx,window,&out,"08-native-undone.png")?;
     std::fs::write(out.join("result.json"),serde_json::to_vec_pretty(&json!({
         "status":"passed","scope":"native GPUI/Metal visual-test workspace, real pointer callbacks, real editor-buffer edits, stdio, loopback HTTP, SQLite",
-        "cloud_enabled":false,"source_written":false,"app_package_verified":false,
+        "cloud_enabled":false,"source_written_then_undone":true,"app_package_verified":false,
         "original_rows":16,"candidate_rows":17,"candidate_checks":"passed","broken_control":"not_passed",
-        "historical_trace_preserved":true,"idle_pause_keeps_evidence":true,"editor_focus_restored":true,
-        "screenshots":5,"original_receipt":origin["id"],"candidate_receipt":after["result"]["receipt"]["id"]
+        "historical_trace_preserved":true,"idle_pause_keeps_evidence":true,"guarded_apply_undo":true,"editor_focus_restored":true,
+        "screenshots":9,"original_receipt":origin["id"],"candidate_receipt":after["result"]["receipt"]["id"]
     }))?)?;
     println!("ROWDY_NATIVE_VISUAL_PASSED: real native workflow; not a packaged app or warehouse test");
     Ok(())
